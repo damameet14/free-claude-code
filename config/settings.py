@@ -3,6 +3,7 @@
 import os
 from functools import lru_cache
 from pathlib import Path
+from typing import Any
 
 from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -213,6 +214,142 @@ class Settings(BaseSettings):
     def parse_model_name(model_string: str) -> str:
         """Extract model name from any 'provider/model' string."""
         return model_string.split("/", 1)[1]
+
+    def save_to_file(self, path: Path | None = None) -> None:
+        """Save current settings to .env file.
+
+        Args:
+            path: Path to save .env file. If None, uses first env file location.
+        """
+        if path is None:
+            # Use the first env file path (user config dir)
+            path = _env_files()[0]
+
+        path.parent.mkdir(parents=True, exist_ok=True)
+
+        lines: list[str] = []
+
+        def add_section(name: str, items: list[tuple[str, Any]]) -> None:
+            lines.append(f"# {name}")
+            lines.append("")
+            for key, value in items:
+                if value is not None and value != "":
+                    lines.append(f'{key.upper()}="{value}"')
+                else:
+                    lines.append(f'{key.upper()}=""')
+            lines.append("")
+
+        # OpenRouter
+        add_section(
+            "OpenRouter Config",
+            [("OPENROUTER_API_KEY", self.open_router_api_key)],
+        )
+
+        # NVIDIA NIM
+        add_section(
+            "NVIDIA NIM Config",
+            [
+                ("NVIDIA_NIM_API_KEY", self.nvidia_nim_api_key),
+            ],
+        )
+
+        # LM Studio
+        add_section(
+            "LM Studio Config",
+            [("LM_STUDIO_BASE_URL", self.lm_studio_base_url)],
+        )
+
+        # Llama.cpp
+        add_section(
+            "Llama.cpp Config",
+            [("LLAMACPP_BASE_URL", self.llamacpp_base_url)],
+        )
+
+        # Models
+        add_section(
+            "Model Mapping",
+            [
+                ("MODEL_OPUS", self.model_opus),
+                ("MODEL_SONNET", self.model_sonnet),
+                ("MODEL_HAIKU", self.model_haiku),
+                ("MODEL", self.model),
+            ],
+        )
+
+        # Rate limiting
+        add_section(
+            "Provider Rate Limiting",
+            [
+                ("PROVIDER_RATE_LIMIT", self.provider_rate_limit),
+                ("PROVIDER_RATE_WINDOW", self.provider_rate_window),
+                ("PROVIDER_MAX_CONCURRENCY", self.provider_max_concurrency),
+            ],
+        )
+
+        # Timeouts
+        add_section(
+            "Timeouts",
+            [
+                ("HTTP_READ_TIMEOUT", self.http_read_timeout),
+                ("HTTP_WRITE_TIMEOUT", self.http_write_timeout),
+                ("HTTP_CONNECT_TIMEOUT", self.http_connect_timeout),
+            ],
+        )
+
+        # Optimizations
+        add_section(
+            "Optimizations",
+            [
+                ("FAST_PREFIX_DETECTION", self.fast_prefix_detection),
+                ("ENABLE_NETWORK_PROBE_MOCK", self.enable_network_probe_mock),
+                ("ENABLE_TITLE_GENERATION_SKIP", self.enable_title_generation_skip),
+                ("ENABLE_SUGGESTION_MODE_SKIP", self.enable_suggestion_mode_skip),
+                ("ENABLE_FILEPATH_EXTRACTION_MOCK", self.enable_filepath_extraction_mock),
+            ],
+        )
+
+        # Voice
+        add_section(
+            "Voice Note Transcription",
+            [
+                ("VOICE_NOTE_ENABLED", self.voice_note_enabled),
+                ("WHISPER_DEVICE", self.whisper_device),
+                ("WHISPER_MODEL", self.whisper_model),
+                ("HF_TOKEN", self.hf_token),
+            ],
+        )
+
+        # Messaging
+        add_section(
+            "Messaging Platform",
+            [
+                ("MESSAGING_PLATFORM", self.messaging_platform),
+                ("TELEGRAM_BOT_TOKEN", self.telegram_bot_token),
+                ("ALLOWED_TELEGRAM_USER_ID", self.allowed_telegram_user_id),
+                ("DISCORD_BOT_TOKEN", self.discord_bot_token),
+                ("ALLOWED_DISCORD_CHANNELS", self.allowed_discord_channels),
+            ],
+        )
+
+        # Agent
+        add_section(
+            "Agent Configuration",
+            [
+                ("CLAUDE_WORKSPACE", self.claude_workspace),
+                ("ALLOWED_DIR", self.allowed_dir),
+            ],
+        )
+
+        # Server
+        add_section(
+            "Server",
+            [
+                ("HOST", self.host),
+                ("PORT", self.port),
+            ],
+        )
+
+        path.write_text("\n".join(lines), encoding="utf-8")
 
     model_config = SettingsConfigDict(
         env_file=_env_files(),

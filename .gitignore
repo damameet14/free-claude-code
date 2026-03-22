@@ -1,12 +1,48 @@
-__pycache__
-.claude
-.cursor
-.pytest_cache
-.ruff_cache
-.serena
-.venv
-agent_workspace
-.env
-server.log
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# IDE
+.claude/
+.cursor/
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Testing
+.pytest_cache/
 .coverage
-llama_cache
+htmlcov/
+
+# Logs
+*.log
+server.*.log
+
+# App data
+agent_workspace/
+llama_cache/
+
+# Environment
+.env
+.env.local
+
+# System
+.DS_Store
+Thumbs.db
+
+# Project specific
+.serena/
+.ruff_cache/

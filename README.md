@@ -39,11 +39,26 @@ A lightweight proxy that routes Claude Code's Anthropic API calls to **NVIDIA NI
 | **Smart Rate Limiting**    | Proactive rolling-window throttle + reactive 429 exponential backoff + optional concurrency cap |
 | **Discord / Telegram Bot** | Remote autonomous coding with tree-based threading, session persistence, and live progress      |
 | **Subagent Control**       | Task tool interception forces `run_in_background=False`. No runaway subagents                   |
+| **Desktop GUI** | Modern configuration UI with CustomTkinter - no file editing needed |
 | **Extensible**             | Clean `BaseProvider` and `MessagingPlatform` ABCs. Add new providers or platforms easily        |
 
 ## Quick Start
 
-### Prerequisites
+### Option 1: Desktop GUI (Recommended)
+
+Launch the modern configuration UI - no need to edit files or use command line:
+
+
+
+The Desktop GUI provides:
+- 🖥️ **Providers**: Configure API keys with visual test buttons
+- 🤖 **Models**: Map OPUS/SONNET/HAIKU with quick model suggestions  
+- 💬 **Messaging**: Set up Discord/Telegram bots easily
+- 🎛️ **Server**: Start/stop with one click, view live logs, change port
+
+### Option 2: Command Line
+
+#### Prerequisites
 
 1. Get an API key (or use LM Studio / llama.cpp locally):
    - **NVIDIA NIM**: [build.nvidia.com/settings/api-keys](https://build.nvidia.com/settings/api-keys)

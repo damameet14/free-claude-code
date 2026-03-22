@@ -3,9 +3,9 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "free-claude-code"
-version = "2.0.0"
-description = "Middleware between Claude Code CLI (Anthropic API) and NVIDIA NIM"
+name = "free-claude-code-desktop"
+version = "2.1.0"
+description = "Free Claude Code with Desktop GUI - A proxy for Claude Code CLI with modern configuration UI"
 readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
