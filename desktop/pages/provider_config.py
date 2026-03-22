@@ -2,8 +2,7 @@
 
 from __future__ import annotations
 
-import tkinter as tk
-from tkinter import ttk
+import customtkinter as ctk
 from typing import TYPE_CHECKING, Callable
 
 if TYPE_CHECKING:
@@ -15,190 +14,251 @@ class ProviderConfigPage:
 
     def __init__(
         self,
-        parent: ttk.Frame,
+        parent: ctk.CTkFrame,
         config: dict[str, str],
         on_config_change: Callable[[str, str], None],
     ) -> None:
         self.parent = parent
         self.config = config
         self.on_config_change = on_config_change
-        self._controls: dict[str, tk.Widget] = {}
+        self._controls: dict[str, ctk.CTkBaseClass] = {}
 
-        self.frame = ttk.Frame(parent)
+        # Create main frame
+        self.frame = ctk.CTkFrame(parent, fg_color="transparent")
+        self.frame.grid(row=0, column=0, sticky="nsew")
+        self.frame.grid_columnconfigure(0, weight=1)
+        self.frame.grid_rowconfigure(1, weight=1)
+
+        # Header
+        header = ctk.CTkFrame(self.frame, fg_color="transparent")
+        header.grid(row=0, column=0, sticky="ew", pady=(0, 10), padx=10)
+        header.grid_columnconfigure(0, weight=1)
+
+        ctk.CTkLabel(
+            header,
+            text="Provider Configuration",
+            font=("Inter", 24, "bold"),
+        ).grid(row=0, column=0, sticky="w")
+
+        ctk.CTkLabel(
+            header,
+            text="Configure API keys and URLs for LLM providers",
+            font=("Inter", 12),
+            text_color="gray",
+        ).grid(row=1, column=0, sticky="w", pady=(5, 0))
+
+        # Scrollable content
+        self.scroll_frame = ctk.CTkScrollableFrame(
+            self.frame, fg_color="transparent", corner_radius=0
+        )
+        self.scroll_frame.grid(row=1, column=0, sticky="nsew", pady=10)
+        self.scroll_frame.grid_columnconfigure(0, weight=1)
+
         self._build()
 
     def _create_api_key_input(
         self,
-        parent: ttk.Frame,
+        parent: ctk.CTkFrame,
         label: str,
         key: str,
         hint: str | None = None,
-    ) -> ttk.Frame:
-        """Create an API key input field."""
+    ) -> ctk.CTkFrame:
+        """Create an API key input field with test button."""
         value = self.config.get(key, "")
 
-        frame = ttk.Frame(parent)
-        frame.pack(fill=tk.X, pady=5)
+        frame = ctk.CTkFrame(parent, fg_color="transparent")
+        frame.pack(fill="x", pady=8)
 
-        ttk.Label(frame, text=label, font=("Arial", 10, "bold")).pack(
-            anchor=tk.W, pady=(0, 2)
+        ctk.CTkLabel(frame, text=label, font=("Inter", 13, "bold")).pack(
+            anchor="w", pady=(0, 5)
         )
 
-        entry_frame = ttk.Frame(frame)
-        entry_frame.pack(fill=tk.X)
+        entry_frame = ctk.CTkFrame(frame, fg_color="transparent")
+        entry_frame.pack(fill="x")
+        entry_frame.grid_columnconfigure(0, weight=1)
 
-        var = tk.StringVar(value=value)
-        entry = ttk.Entry(
-            entry_frame, textvariable=var, show="*" if "key" in key.lower() else ""
+        entry = ctk.CTkEntry(
+            entry_frame,
+            show="●",
+            font=("Inter", 12),
+            height=35,
+            corner_radius=8,
         )
-        entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 5))
+        entry.insert(0, value)
+        entry.grid(row=0, column=0, sticky="ew", padx=(0, 10))
 
-        def on_change(*args):
-            self.on_config_change(key, var.get())
+        def on_change(event=None):
+            self.on_config_change(key, entry.get())
 
-        var.trace_add("write", on_change)
-        self._controls[key] = entry
+        entry.bind("<FocusOut>", on_change)
+        entry.bind("<Return>", on_change)
 
-        ttk.Button(
+        test_btn = ctk.CTkButton(
             entry_frame,
             text="Test",
-            width=8,
+            width=60,
+            height=35,
+            corner_radius=8,
+            font=("Inter", 11),
             command=lambda: self._test_connection(key),
-        ).pack(side=tk.RIGHT)
+        )
+        test_btn.grid(row=0, column=1)
 
+        if hint:
+            ctk.CTkLabel(
+                entry_frame,
+                text=hint,
+                font=("Inter", 10),
+                text_color="gray",
+            ).grid(row=1, column=0, sticky="w", pady=(5, 0))
+
+        self._controls[key] = entry
         return frame
 
     def _create_base_url_input(
-        self,
-        parent: ttk.Frame,
-        label: str,
-        key: str,
-        default: str,
-    ) -> ttk.Entry:
+        self, parent: ctk.CTkFrame, label: str, key: str, default: str
+    ) -> ctk.CTkEntry:
         """Create a base URL input field."""
         value = self.config.get(key, default)
 
-        frame = ttk.Frame(parent)
-        frame.pack(fill=tk.X, pady=5)
+        frame = ctk.CTkFrame(parent, fg_color="transparent")
+        frame.pack(fill="x", pady=8)
 
-        ttk.Label(frame, text=label, font=("Arial", 10, "bold")).pack(
-            anchor=tk.W, pady=(0, 2)
+        ctk.CTkLabel(frame, text=label, font=("Inter", 13, "bold")).pack(
+            anchor="w", pady=(0, 5)
         )
 
-        var = tk.StringVar(value=value)
-        entry = ttk.Entry(frame, textvariable=var)
-        entry.pack(fill=tk.X)
+        entry = ctk.CTkEntry(
+            frame,
+            font=("Inter", 12),
+            height=35,
+            corner_radius=8,
+        )
+        entry.insert(0, value)
+        entry.pack(fill="x")
 
-        def on_change(*args):
-            self.on_config_change(key, var.get())
+        def on_change(event=None):
+            self.on_config_change(key, entry.get())
 
-        var.trace_add("write", on_change)
+        entry.bind("<FocusOut>", on_change)
+        entry.bind("<Return>", on_change)
+
         self._controls[key] = entry
-
         return entry
 
     def _test_connection(self, key: str) -> None:
         """Test API key connection."""
+        from tkinter import messagebox
+
         value = self.config.get(key, "")
         if value and len(value) > 10:
-            tk.messagebox.showinfo("Validation", f"{key} looks valid (verify manually)")
+            messagebox.showinfo(
+                "Validation",
+                f"{key} looks valid (verify manually with provider)",
+            )
         else:
-            tk.messagebox.showwarning("Validation", f"{key} appears invalid")
+            messagebox.showwarning("Validation", f"{key} appears invalid or empty")
+
+    def _create_card(self, title: str) -> ctk.CTkFrame:
+        """Create a card-style container."""
+        card = ctk.CTkFrame(
+            self.scroll_frame,
+            corner_radius=12,
+            border_width=1,
+            border_color=["gray80", "gray40"],
+        )
+        card.pack(fill="x", pady=10, padx=5)
+
+        ctk.CTkLabel(card, text=title, font=("Inter", 16, "bold")).pack(
+            anchor="w", pady=(15, 10), padx=15
+        )
+
+        return card
 
     def _build(self) -> None:
         """Build the page content."""
-        # Title
-        ttk.Label(
-            self.frame, text="Provider Configuration", font=("Arial", 16, "bold")
-        ).pack(anchor=tk.W, pady=(0, 10))
+        # NVIDIA NIM Card
+        nim_card = self._create_card("🚀 NVIDIA NIM")
 
-        ttk.Separator(self.frame, orient=tk.HORIZONTAL).pack(fill=tk.X, pady=5)
-
-        # Scrollable frame for content
-        canvas = tk.Canvas(self.frame, bg="#1e1e1e", highlightthickness=0)
-        scrollbar = ttk.Scrollbar(self.frame, orient=tk.VERTICAL, command=canvas.yview)
-        scroll_frame = ttk.Frame(canvas)
-
-        scroll_frame.bind(
-            "<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
-        )
-
-        canvas.create_window((0, 0), window=scroll_frame, anchor=tk.NW, width=700)
-        canvas.configure(yscrollcommand=scrollbar.set)
-
-        canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
-
-        # NVIDIA NIM Section
-        nim_frame = ttk.LabelFrame(scroll_frame, text="NVIDIA NIM", padding=10)
-        nim_frame.pack(fill=tk.X, pady=10, padx=5)
-
-        ttk.Label(
-            nim_frame,
+        ctk.CTkLabel(
+            nim_card,
             text="40 req/min free tier at build.nvidia.com",
-            foreground="gray",
-        ).pack(anchor=tk.W, pady=(0, 5))
+            font=("Inter", 11),
+            text_color="gray",
+        ).pack(anchor="w", pady=(0, 10), padx=15)
+
+        content_frame = ctk.CTkFrame(nim_card, fg_color="transparent")
+        content_frame.pack(fill="x", padx=15, pady=(0, 15))
 
         self._create_api_key_input(
-            nim_frame,
+            content_frame,
             "NVIDIA NIM API Key",
             "NVIDIA_NIM_API_KEY",
             "nvapi-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
         )
 
-        # OpenRouter Section
-        or_frame = ttk.LabelFrame(scroll_frame, text="OpenRouter", padding=10)
-        or_frame.pack(fill=tk.X, pady=10, padx=5)
+        # OpenRouter Card
+        or_card = self._create_card("🌐 OpenRouter")
 
-        ttk.Label(
-            or_frame,
+        ctk.CTkLabel(
+            or_card,
             text="Access hundreds of models at openrouter.ai",
-            foreground="gray",
-        ).pack(anchor=tk.W, pady=(0, 5))
+            font=("Inter", 11),
+            text_color="gray",
+        ).pack(anchor="w", pady=(0, 10), padx=15)
+
+        content_frame = ctk.CTkFrame(or_card, fg_color="transparent")
+        content_frame.pack(fill="x", padx=15, pady=(0, 15))
 
         self._create_api_key_input(
-            or_frame,
+            content_frame,
             "OpenRouter API Key",
             "OPENROUTER_API_KEY",
             "sk-or-v1-xxxxxxxx",
         )
 
         # Local Providers Section
-        ttk.Label(
-            scroll_frame,
+        ctk.CTkLabel(
+            self.scroll_frame,
             text="Local Providers (No API Key Required)",
-            font=("Arial", 12, "bold"),
-        ).pack(anchor=tk.W, pady=(20, 10))
+            font=("Inter", 16, "bold"),
+        ).pack(anchor="w", pady=(20, 10), padx=5)
 
-        # LM Studio
-        lm_frame = ttk.LabelFrame(scroll_frame, text="LM Studio", padding=10)
-        lm_frame.pack(fill=tk.X, pady=10, padx=5)
+        # LM Studio Card
+        lm_card = self._create_card("💻 LM Studio")
 
-        ttk.Label(
-            lm_frame,
+        ctk.CTkLabel(
+            lm_card,
             text="Fully local inference with LM Studio",
-            foreground="gray",
-        ).pack(anchor=tk.W, pady=(0, 5))
+            font=("Inter", 11),
+            text_color="gray",
+        ).pack(anchor="w", pady=(0, 10), padx=15)
+
+        content_frame = ctk.CTkFrame(lm_card, fg_color="transparent")
+        content_frame.pack(fill="x", padx=15, pady=(0, 15))
 
         self._create_base_url_input(
-            lm_frame,
+            content_frame,
             "LM Studio URL",
             "LM_STUDIO_BASE_URL",
             "http://localhost:1234/v1",
         )
 
-        # llama.cpp
-        llama_frame = ttk.LabelFrame(scroll_frame, text="llama.cpp", padding=10)
-        llama_frame.pack(fill=tk.X, pady=10, padx=5)
+        # llama.cpp Card
+        llama_card = self._create_card("🦙 llama.cpp")
 
-        ttk.Label(
-            llama_frame,
+        ctk.CTkLabel(
+            llama_card,
             text="Lightweight local inference with llama-server",
-            foreground="gray",
-        ).pack(anchor=tk.W, pady=(0, 5))
+            font=("Inter", 11),
+            text_color="gray",
+        ).pack(anchor="w", pady=(0, 10), padx=15)
+
+        content_frame = ctk.CTkFrame(llama_card, fg_color="transparent")
+        content_frame.pack(fill="x", padx=15, pady=(0, 15))
 
         self._create_base_url_input(
-            llama_frame,
+            content_frame,
             "llama.cpp URL",
             "LLAMACPP_BASE_URL",
             "http://localhost:8080/v1",
@@ -207,6 +267,6 @@ class ProviderConfigPage:
     def refresh(self) -> None:
         """Refresh controls with current config values."""
         for key, control in self._controls.items():
-            if isinstance(control, ttk.Entry):
-                control.delete(0, tk.END)
+            if isinstance(control, ctk.CTkEntry):
+                control.delete(0, "end")
                 control.insert(0, self.config.get(key, ""))

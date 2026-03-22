@@ -2,15 +2,14 @@
 
 from __future__ import annotations
 
-import tkinter as tk
-from tkinter import ttk
+import customtkinter as ctk
 from typing import TYPE_CHECKING, Callable
 
 if TYPE_CHECKING:
     pass
 
 
-# Provider options
+# Provider options with descriptions
 PROVIDERS = {
     "nvidia_nim": "NVIDIA NIM",
     "open_router": "OpenRouter",
@@ -20,19 +19,16 @@ PROVIDERS = {
 
 POPULAR_MODELS = {
     "nvidia_nim": [
-        "z-ai/glm4.7",
-        "z-ai/glm5",
-        "moonshotai/kimi-k2.5",
-        "moonshotai/kimi-k2-thinking",
-        "stepfun-ai/step-3.5-flash",
-        "qwen/qwen3.5-397b-a17b",
-        "minimaxai/minimax-m2.5",
+        ("z-ai/glm4.7", "GLM 4.7"),
+        ("z-ai/glm5", "GLM 5"),
+        ("moonshotai/kimi-k2.5", "Kimi K2.5"),
+        ("moonshotai/kimi-k2-thinking", "Kimi K2 Thinking"),
+        ("stepfun-ai/step-3.5-flash", "Step 3.5 Flash"),
     ],
     "open_router": [
-        "deepseek/deepseek-r1-0528:free",
-        "arcee-ai/trinity-large-preview:free",
-        "stepfun/step-3.5-flash:free",
-        "openai/gpt-oss-120b:free",
+        ("deepseek/deepseek-r1-0528:free", "DeepSeek R1"),
+        ("arcee-ai/trinity-large-preview:free", "Trinity"),
+        ("stepfun/step-3.5-flash:free", "Step Flash"),
     ],
 }
 
@@ -42,16 +38,46 @@ class ModelMappingPage:
 
     def __init__(
         self,
-        parent: ttk.Frame,
+        parent: ctk.CTkFrame,
         config: dict[str, str],
         on_config_change: Callable[[str, str], None],
     ) -> None:
         self.parent = parent
         self.config = config
         self.on_config_change = on_config_change
-        self._controls: dict[str, tk.Widget] = {}
+        self._controls: dict[str, ctk.CTkBaseClass] = {}
 
-        self.frame = ttk.Frame(parent)
+        # Create main frame
+        self.frame = ctk.CTkFrame(parent, fg_color="transparent")
+        self.frame.grid(row=0, column=0, sticky="nsew")
+        self.frame.grid_columnconfigure(0, weight=1)
+        self.frame.grid_rowconfigure(1, weight=1)
+
+        # Header
+        header = ctk.CTkFrame(self.frame, fg_color="transparent")
+        header.grid(row=0, column=0, sticky="ew", pady=(0, 10), padx=10)
+        header.grid_columnconfigure(0, weight=1)
+
+        ctk.CTkLabel(
+            header,
+            text="Model Mapping",
+            font=("Inter", 24, "bold"),
+        ).grid(row=0, column=0, sticky="w")
+
+        ctk.CTkLabel(
+            header,
+            text="Configure which models are used for each Claude model type",
+            font=("Inter", 12),
+            text_color="gray",
+        ).grid(row=1, column=0, sticky="w", pady=(5, 0))
+
+        # Scrollable content
+        self.scroll_frame = ctk.CTkScrollableFrame(
+            self.frame, fg_color="transparent", corner_radius=0
+        )
+        self.scroll_frame.grid(row=1, column=0, sticky="nsew", pady=10)
+        self.scroll_frame.grid_columnconfigure(0, weight=1)
+
         self._build()
 
     def _parse_model(self, model_string: str) -> tuple[str, str]:
@@ -61,178 +87,198 @@ class ModelMappingPage:
         provider, _, model = model_string.partition("/")
         return (provider, model)
 
-    def _create_model_row(
+    def _create_model_card(
         self,
-        parent: ttk.Frame,
-        label: str,
+        title: str,
+        emoji: str,
         description: str,
         key: str,
-    ) -> ttk.Frame:
-        """Create a model selection row."""
+    ) -> None:
+        """Create a model selection card."""
         value = self.config.get(key, "")
         provider, model = self._parse_model(value)
 
-        frame = ttk.LabelFrame(parent, text=label, padding=10)
-        frame.pack(fill=tk.X, pady=8, padx=5)
-
-        ttk.Label(frame, text=description, foreground="gray").pack(
-            anchor=tk.W, pady=(0, 10)
+        card = ctk.CTkFrame(
+            self.scroll_frame,
+            corner_radius=12,
+            border_width=1,
+            border_color=["gray80", "gray40"],
         )
+        card.pack(fill="x", pady=10, padx=5)
+
+        header = ctk.CTkFrame(card, fg_color="transparent")
+        header.pack(fill="x", pady=12, padx=15)
+
+        ctk.CTkLabel(
+            header,
+            text=f"{emoji} {title}",
+            font=("Inter", 16, "bold"),
+        ).pack(side="left")
+
+        ctk.CTkLabel(
+            card,
+            text=description,
+            font=("Inter", 11),
+            text_color="gray",
+        ).pack(anchor="w", padx=15, pady=(0, 10))
+
+        content = ctk.CTkFrame(card, fg_color="transparent")
+        content.pack(fill="x", padx=15, pady=(0, 15))
 
         # Provider dropdown
-        provider_frame = ttk.Frame(frame)
-        provider_frame.pack(fill=tk.X, pady=5)
+        ctk.CTkLabel(content, text="Provider", font=("Inter", 12, "bold")).pack(
+            anchor="w", pady=(0, 5)
+        )
 
-        ttk.Label(provider_frame, text="Provider:").pack(side=tk.LEFT, padx=(0, 10))
-
-        provider_var = tk.StringVar(
+        provider_var = ctk.StringVar(
             value=provider if provider in PROVIDERS else "nvidia_nim"
         )
-        provider_combo = ttk.Combobox(
-            provider_frame,
-            textvariable=provider_var,
+        provider_dropdown = ctk.CTkOptionMenu(
+            content,
             values=list(PROVIDERS.keys()),
-            state="readonly",
-            width=20,
+            variable=provider_var,
+            font=("Inter", 12),
+            height=35,
+            corner_radius=8,
         )
-        provider_combo.pack(side=tk.LEFT)
+        provider_dropdown.pack(fill="x", pady=(0, 10))
 
-        # Model input
-        model_frame = ttk.Frame(frame)
-        model_frame.pack(fill=tk.X, pady=5)
+        # Model path
+        ctk.CTkLabel(
+            content,
+            text="Model Path",
+            font=("Inter", 12, "bold"),
+        ).pack(anchor="w", pady=(0, 5))
 
-        ttk.Label(model_frame, text="Model Path:").pack(side=tk.LEFT, padx=(0, 10))
+        model_var = ctk.StringVar(value=value)
+        model_entry = ctk.CTkEntry(
+            content,
+            font=("Inter", 12),
+            height=35,
+            corner_radius=8,
+        )
+        model_entry.insert(0, value)
+        model_entry.pack(fill="x", pady=(0, 10))
 
-        model_var = tk.StringVar(value=value)
-        model_entry = ttk.Entry(model_frame, textvariable=model_var)
-        model_entry.pack(side=tk.LEFT, fill=tk.X, expand=True)
-
-        def on_provider_change(*args):
+        def update_model(*args):
             new_provider = provider_var.get()
-            current = model_var.get()
+            current = model_entry.get()
             if "/" in current:
-                _, _, suffix = current.partition("/")
-                if suffix:
-                    new_value = f"{new_provider}/{suffix}"
-                else:
-                    new_value = f"{new_provider}/"
+                _, suffix = current.split("/", 1)
+                new_value = f"{new_provider}/{suffix}"
             else:
                 new_value = f"{new_provider}/"
-            model_var.set(new_value)
+            model_entry.delete(0, "end")
+            model_entry.insert(0, new_value)
             self.on_config_change(key, new_value)
 
-        provider_var.trace_add("write", on_provider_change)
+        def on_model_change(event=None):
+            self.on_config_change(key, model_entry.get())
 
-        def on_model_change(*args):
-            self.on_config_change(key, model_var.get())
+        provider_var.trace_add("write", update_model)
+        model_entry.bind("<FocusOut>", on_model_change)
+        model_entry.bind("<Return>", on_model_change)
 
-        model_var.trace_add("write", on_model_change)
+        # Model suggestions
+        ctk.CTkLabel(
+            content,
+            text="Popular models:",
+            font=("Inter", 11, "bold"),
+        ).pack(anchor="w", pady=(5, 8))
 
-        self._controls[f"{key}_provider"] = provider_combo
-        self._controls[key] = model_entry
-
-        # Quick model suggestions
-        suggestions_frame = ttk.Frame(frame)
-        suggestions_frame.pack(fill=tk.X, pady=(10, 0))
-
-        ttk.Label(suggestions_frame, text="Popular models:", font=("Arial", 9)).pack(
-            anchor=tk.W
-        )
+        suggestions_frame = ctk.CTkFrame(content, fg_color="transparent")
+        suggestions_frame.pack(fill="x", pady=(0, 5))
 
         models = POPULAR_MODELS.get(provider, [])
-        for model in models[:4]:
-            short_name = model.split("/")[-1][:20]
-            ttk.Button(
+        for model_path, short_name in models[:3]:
+            ctk.CTkButton(
                 suggestions_frame,
                 text=short_name,
-                command=lambda p=provider, m=model: (
-                    model_var.set(f"{p}/{m}"),
-                    self.on_config_change(key, f"{p}/{m}"),
+                width=100,
+                height=30,
+                font=("Inter", 10),
+                fg_color="transparent",
+                border_width=1,
+                hover_color=["gray85", "gray45"],
+                command=lambda mp=model_path, p=provider: self._set_model(
+                    key, model_entry, f"{provider}/{mp}"
                 ),
-            ).pack(side=tk.LEFT, padx=2)
+            ).pack(side="left", padx=3)
 
-        return frame
+        self._controls[f"{key}_provider"] = provider_dropdown
+        self._controls[key] = model_entry
+
+    def _set_model(self, key: str, entry: ctk.CTkEntry, model: str) -> None:
+        """Set model from suggestion."""
+        entry.delete(0, "end")
+        entry.insert(0, model)
+        self.on_config_change(key, model)
 
     def _build(self) -> None:
         """Build the page content."""
-        # Title
-        ttk.Label(self.frame, text="Model Mapping", font=("Arial", 16, "bold")).pack(
-            anchor=tk.W, pady=(0, 10)
-        )
-
-        ttk.Separator(self.frame, orient=tk.HORIZONTAL).pack(fill=tk.X, pady=5)
-
-        ttk.Label(
-            self.frame,
-            text="Configure which provider models are used for each Claude model type. "
-            "Format: provider_prefix/model/path",
-            foreground="gray",
-        ).pack(anchor=tk.W, pady=(0, 15))
-
-        # Scrollable frame
-        canvas = tk.Canvas(self.frame, bg="#1e1e1e", highlightthickness=0)
-        scrollbar = ttk.Scrollbar(self.frame, orient=tk.VERTICAL, command=canvas.yview)
-        scroll_frame = ttk.Frame(canvas)
-
-        scroll_frame.bind(
-            "<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
-        )
-
-        canvas.create_window((0, 0), window=scroll_frame, anchor=tk.NW, width=700)
-        canvas.configure(yscrollcommand=scrollbar.set)
-
-        canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
-
-        # Model rows
-        self._create_model_row(
-            scroll_frame,
+        self._create_model_card(
             "Model OPUS",
+            "🧠",
             "Most capable model for complex reasoning and coding",
             "MODEL_OPUS",
         )
 
-        self._create_model_row(
-            scroll_frame,
+        self._create_model_card(
             "Model SONNET",
+            "⚡",
             "Balanced model for everyday tasks",
             "MODEL_SONNET",
         )
 
-        self._create_model_row(
-            scroll_frame,
+        self._create_model_card(
             "Model HAIKU",
+            "🚀",
             "Fastest model for quick tasks",
             "MODEL_HAIKU",
         )
 
-        self._create_model_row(
-            scroll_frame,
+        self._create_model_card(
             "Default Model",
-            "Fallback model for unrecognized Claude model requests",
+            "🎯",
+            "Fallback model for unrecognized requests",
             "MODEL",
         )
 
-        # Help text
-        help_frame = ttk.LabelFrame(scroll_frame, text="Model Format Guide", padding=10)
-        help_frame.pack(fill=tk.X, pady=20, padx=5)
+        # Format help card
+        help_card = ctk.CTkFrame(
+            self.scroll_frame,
+            corner_radius=12,
+            fg_color=["gray90", "gray20"],
+        )
+        help_card.pack(fill="x", pady=15, padx=5)
 
-        help_text = """Use format: provider/model/name
+        ctk.CTkLabel(
+            help_card,
+            text="Model Format Guide",
+            font=("Inter", 14, "bold"),
+        ).pack(anchor="w", pady=(15, 10), padx=15)
+
+        help_text = """Format: provider/model/path
 
 • NVIDIA NIM: nvidia_nim/moonshotai/kimi-k2.5
 • OpenRouter: open_router/deepseek/deepseek-r1:free
 • LM Studio: lmstudio/unsloth/MiniMax-M2.5-GGUF
 • llama.cpp: llamacpp/local-model"""
 
-        ttk.Label(help_frame, text=help_text, justify=tk.LEFT).pack(anchor=tk.W)
+        ctk.CTkLabel(
+            help_card,
+            text=help_text,
+            font=("Consolas", 11),
+            justify="left",
+        ).pack(anchor="w", pady=(0, 15), padx=15)
 
     def refresh(self) -> None:
         """Refresh controls with current config values."""
         for key, control in self._controls.items():
-            if isinstance(control, ttk.Entry):
-                control.delete(0, tk.END)
+            if isinstance(control, ctk.CTkEntry):
+                control.delete(0, "end")
                 control.insert(0, self.config.get(key, ""))
-            elif isinstance(control, ttk.Combobox) and key.endswith("_provider"):
+            elif isinstance(control, ctk.CTkOptionMenu):
                 parent_key = key.replace("_provider", "")
                 value = self.config.get(parent_key, "")
                 provider, _ = self._parse_model(value)

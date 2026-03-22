@@ -1,14 +1,13 @@
-"""Main tkinter desktop application for Free Claude Code configuration."""
+"""Main CustomTkinter desktop application for Free Claude Code configuration."""
 
 from __future__ import annotations
 
 import threading
-import tkinter as tk
 import webbrowser
 from pathlib import Path
-from tkinter import messagebox, ttk
 from typing import TYPE_CHECKING
 
+import customtkinter as ctk
 from loguru import logger
 
 if TYPE_CHECKING:
@@ -30,6 +29,7 @@ _server_shutdown_event = threading.Event()
 def run_fastapi_server(host: str, port: int, shutdown_event: threading.Event) -> None:
     """Run FastAPI server in a separate thread."""
     import asyncio
+
     import uvicorn
 
     from api.app import app
@@ -103,7 +103,7 @@ def stop_server() -> None:
 class ConfigApp:
     """Main application controller for the desktop UI."""
 
-    def __init__(self, root: tk.Tk) -> None:
+    def __init__(self, root: ctk.CTk) -> None:
         self.root = root
         self.settings = get_settings()
         self.config_data = load_config()
@@ -115,102 +115,136 @@ class ConfigApp:
     def _setup_window(self) -> None:
         """Configure the main window."""
         self.root.title("Free Claude Code")
-        self.root.geometry("900x700")
-        self.root.minsize(700, 500)
+        self.root.geometry("1000x750")
+        self.root.minsize(800, 600)
 
         # Set theme
-        self.style = ttk.Style()
-        self.style.theme_use("clam")
-
-        # Configure colors
-        self.style.configure("TFrame", background="#1e1e1e")
-        self.style.configure("TLabel", background="#1e1e1e", foreground="#ffffff")
-        self.style.configure("TButton", padding=5)
-
-        self.root.configure(bg="#1e1e1e")
+        ctk.set_appearance_mode("dark")
+        ctk.set_default_color_theme("blue")
 
     def _create_ui(self) -> None:
         """Create the main UI components."""
-        # Main container
-        self.main_frame = ttk.Frame(self.root)
-        self.main_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+        # Main container with grid layout
+        self.root.grid_columnconfigure(1, weight=1)
+        self.root.grid_rowconfigure(0, weight=1)
 
-        # Left sidebar with navigation
-        self.sidebar = ttk.Frame(self.main_frame, width=150)
-        self.sidebar.pack(side=tk.LEFT, fill=tk.Y, padx=(0, 10))
-        self.sidebar.pack_propagate(False)
+        # Left sidebar
+        self.sidebar = ctk.CTkFrame(self.root, width=180, corner_radius=10)
+        self.sidebar.grid(row=0, column=0, sticky="nsew", padx=15, pady=15)
+        self.sidebar.grid_rowconfigure(5, weight=1)
+
+        # App title
+        ctk.CTkLabel(
+            self.sidebar,
+            text="Free Claude Code",
+            font=("Inter", 20, "bold"),
+        ).grid(row=0, column=0, pady=(15, 5), padx=15)
+
+        ctk.CTkLabel(
+            self.sidebar,
+            text="Configuration",
+            font=("Inter", 12),
+            text_color="gray",
+        ).grid(row=1, column=0, pady=(0, 15), padx=15)
 
         # Navigation buttons
-        ttk.Label(self.sidebar, text="Navigation", font=("Arial", 12, "bold")).pack(
-            pady=10
-        )
+        self.nav_buttons: dict[str, ctk.CTkButton] = {}
 
-        self.nav_buttons: dict[str, ttk.Button] = {}
-
-        self.btn_providers = ttk.Button(
+        self.btn_providers = ctk.CTkButton(
             self.sidebar,
-            text="Providers",
+            text="🔑  Providers",
+            font=("Inter", 13),
+            height=40,
+            corner_radius=8,
             command=lambda: self._show_page("providers"),
         )
-        self.btn_providers.pack(fill=tk.X, pady=5)
+        self.btn_providers.grid(row=2, column=0, pady=5, padx=15, sticky="ew")
         self.nav_buttons["providers"] = self.btn_providers
 
-        self.btn_models = ttk.Button(
+        self.btn_models = ctk.CTkButton(
             self.sidebar,
-            text="Models",
+            text="🤖  Models",
+            font=("Inter", 13),
+            height=40,
+            corner_radius=8,
             command=lambda: self._show_page("models"),
         )
-        self.btn_models.pack(fill=tk.X, pady=5)
+        self.btn_models.grid(row=3, column=0, pady=5, padx=15, sticky="ew")
         self.nav_buttons["models"] = self.btn_models
 
-        self.btn_messaging = ttk.Button(
+        self.btn_messaging = ctk.CTkButton(
             self.sidebar,
-            text="Messaging",
+            text="💬  Messaging",
+            font=("Inter", 13),
+            height=40,
+            corner_radius=8,
             command=lambda: self._show_page("messaging"),
         )
-        self.btn_messaging.pack(fill=tk.X, pady=5)
+        self.btn_messaging.grid(row=4, column=0, pady=5, padx=15, sticky="ew")
         self.nav_buttons["messaging"] = self.btn_messaging
 
-        self.btn_server = ttk.Button(
+        self.btn_server = ctk.CTkButton(
             self.sidebar,
-            text="Server",
+            text="🖥️  Server",
+            font=("Inter", 13),
+            height=40,
+            corner_radius=8,
             command=lambda: self._show_page("server"),
         )
-        self.btn_server.pack(fill=tk.X, pady=5)
+        self.btn_server.grid(row=5, column=0, pady=5, padx=15, sticky="ew")
         self.nav_buttons["server"] = self.btn_server
 
-        # Separator
-        ttk.Separator(self.sidebar, orient=tk.HORIZONTAL).pack(fill=tk.X, pady=20)
+        # Bottom section with status and save
+        bottom_frame = ctk.CTkFrame(self.sidebar, fg_color="transparent")
+        bottom_frame.grid(row=6, column=0, sticky="sew", padx=15, pady=15)
+        bottom_frame.grid_columnconfigure(0, weight=1)
+
+        # Status indicator
+        status_frame = ctk.CTkFrame(bottom_frame, fg_color="transparent")
+        status_frame.grid(row=0, column=0, pady=(0, 10), sticky="ew")
+
+        self.status_indicator = ctk.CTkFrame(
+            status_frame, width=12, height=12, fg_color="#666666", corner_radius=6
+        )
+        self.status_indicator.pack(side="left", padx=(0, 10))
+        self.status_indicator.pack_propagate(False)
+
+        self.status_text = ctk.CTkLabel(
+            status_frame, text="Ready", font=("Inter", 11), text_color="gray"
+        )
+        self.status_text.pack(side="left")
+
+        # Theme toggle
+        self.theme_btn = ctk.CTkButton(
+            bottom_frame,
+            text="🌙 Dark Mode",
+            font=("Inter", 11),
+            height=32,
+            command=self._toggle_theme,
+        )
+        self.theme_btn.grid(row=1, column=0, pady=(0, 10), sticky="ew")
 
         # Save button
-        ttk.Button(
-            self.sidebar,
-            text="Save Config",
+        ctk.CTkButton(
+            bottom_frame,
+            text="💾 Save Config",
+            font=("Inter", 13, "bold"),
+            height=45,
+            fg_color="#4caf50",
+            hover_color="#45a049",
             command=self._on_save,
-        ).pack(fill=tk.X, pady=5)
-
-        # Status section
-        self.status_frame = ttk.Frame(self.sidebar)
-        self.status_frame.pack(fill=tk.X, side=tk.BOTTOM, pady=10)
-
-        self.status_indicator = tk.Canvas(
-            self.status_frame, width=12, height=12, bg="#1e1e1e", highlightthickness=0
-        )
-        self.status_indicator.pack(side=tk.LEFT, padx=5)
-        self._update_status_indicator(False)
-
-        self.status_text = ttk.Label(self.status_frame, text="Ready")
-        self.status_text.pack(side=tk.LEFT)
+        ).grid(row=2, column=0, sticky="ew")
 
         # Content area
-        self.content_frame = ttk.Frame(self.main_frame)
-        self.content_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        self.content_frame = ctk.CTkFrame(self.root, corner_radius=10)
+        self.content_frame.grid(row=0, column=1, sticky="nsew", padx=(0, 15), pady=15)
+        self.content_frame.grid_columnconfigure(0, weight=1)
+        self.content_frame.grid_rowconfigure(0, weight=1)
 
     def _update_status_indicator(self, running: bool) -> None:
         """Update the status indicator color."""
-        color = "#4caf50" if running else "#9e9e9e"
-        self.status_indicator.delete("all")
-        self.status_indicator.create_oval(2, 2, 10, 10, fill=color, outline="")
+        color = "#4caf50" if running else "#666666"
+        self.status_indicator.configure(fg_color=color)
 
     def _create_pages(self) -> None:
         """Create the page instances."""
@@ -238,7 +272,7 @@ class ConfigApp:
             on_config_change=self._on_config_change,
         )
 
-        self.pages: dict[str, ttk.Frame] = {
+        self.pages: dict[str, ctk.CTkFrame] = {
             "providers": self.provider_page.frame,
             "models": self.model_page.frame,
             "messaging": self.messaging_page.frame,
@@ -255,18 +289,27 @@ class ConfigApp:
         """Show the selected page."""
         # Hide all pages
         for page in self.pages.values():
-            page.pack_forget()
+            page.grid_forget()
 
         # Show selected page
         if page_name in self.pages:
-            self.pages[page_name].pack(fill=tk.BOTH, expand=True)
+            self.pages[page_name].grid(row=0, column=0, sticky="nsew", padx=20, pady=20)
 
         # Update button states
         for name, btn in self.nav_buttons.items():
             if name == page_name:
-                btn.configure(state="disabled")
+                btn.configure(fg_color=("gray70", "gray30"), state="disabled")
             else:
                 btn.configure(state="normal")
+
+    def _toggle_theme(self) -> None:
+        """Toggle between dark and light mode."""
+        current_mode = ctk.get_appearance_mode()
+        new_mode = "light" if current_mode == "Dark" else "dark"
+        ctk.set_appearance_mode(new_mode)
+        self.theme_btn.configure(
+            text="☀️ Light Mode" if new_mode == "light" else "🌙 Dark Mode"
+        )
 
     def _on_config_change(self, key: str, value: str) -> None:
         """Handle config change from a page."""
@@ -275,6 +318,8 @@ class ConfigApp:
 
     def _on_save(self) -> None:
         """Save configuration to .env file."""
+        from tkinter import messagebox
+
         try:
             # Validate before saving
             errors = validate_config(self.config_data)
@@ -292,7 +337,17 @@ class ConfigApp:
                 get_settings.cache_clear()  # type: ignore[attr-defined]
 
             self._update_status("Configuration saved successfully")
-            messagebox.showinfo("Success", "Configuration saved!")
+
+            # Custom success message
+            ctk.CTkLabel(
+                self.content_frame,
+                text="Configuration saved!",
+                font=("Inter", 14),
+                text_color="#4caf50",
+                fg_color="transparent",
+            ).grid(row=1, column=0, pady=10)
+            self.root.after(3000, lambda: self._show_page("providers"))
+
         except Exception as ex:
             messagebox.showerror("Save Error", str(ex))
 
@@ -340,12 +395,12 @@ class ConfigApp:
 
 
 def main() -> None:
-    """Main entry point for tkinter application."""
+    """Main entry point for CustomTkinter application."""
     # Suppress loguru output to console when running as GUI
     logger.remove()
     logger.add(lambda msg: None, level="WARNING")
 
-    root = tk.Tk()
+    root = ctk.CTk()
     app = ConfigApp(root)
     root.mainloop()
 

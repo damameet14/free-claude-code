@@ -2,8 +2,7 @@
 
 from __future__ import annotations
 
-import tkinter as tk
-from tkinter import ttk
+import customtkinter as ctk
 from typing import TYPE_CHECKING, Callable
 
 if TYPE_CHECKING:
@@ -15,7 +14,7 @@ class ServerControlPage:
 
     def __init__(
         self,
-        parent: ttk.Frame,
+        parent: ctk.CTkFrame,
         config: dict[str, str],
         on_start_server: Callable[[], bool],
         on_stop_server: Callable[[], None],
@@ -32,52 +31,13 @@ class ServerControlPage:
         self._is_running = False
         self._log_entries: list[str] = []
 
-        self.frame = ttk.Frame(parent)
+        # Create main frame
+        self.frame = ctk.CTkFrame(parent, fg_color="transparent")
+        self.frame.grid(row=0, column=0, sticky="nsew")
+        self.frame.grid_columnconfigure(0, weight=1)
+        self.frame.grid_rowconfigure(1, weight=1)
+
         self._build()
-
-    def _create_numeric_input(
-        self,
-        parent: ttk.Frame,
-        label: str,
-        key: str,
-        default: str,
-    ) -> ttk.Entry:
-        """Create a numeric input field."""
-        value = self.config.get(key, default)
-
-        frame = ttk.Frame(parent)
-        frame.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
-
-        ttk.Label(frame, text=label).pack(anchor=tk.W)
-
-        var = tk.StringVar(value=value)
-        entry = ttk.Entry(frame, textvariable=var, width=15)
-        entry.pack(fill=tk.X)
-
-        def on_change(*args):
-            key_mapping = {
-                "port": "PORT",
-                "rate_limit": "PROVIDER_RATE_LIMIT",
-                "rate_window": "PROVIDER_RATE_WINDOW",
-                "max_concurrency": "PROVIDER_MAX_CONCURRENCY",
-                "read_timeout": "HTTP_READ_TIMEOUT",
-                "write_timeout": "HTTP_WRITE_TIMEOUT",
-                "connect_timeout": "HTTP_CONNECT_TIMEOUT",
-            }
-            setting_key = key_mapping.get(key, key.upper())
-            self.parent.master.winfo_toplevel().event_generate(
-                "<<ConfigChange>>",
-                when="tail",
-                x=hash(setting_key),
-                y=hash(var.get()),
-            )
-
-        var.trace_add("write", on_change)
-
-        # Store reference
-        setattr(self, f"_{key}_var", var)
-
-        return entry
 
     def _on_start(self) -> None:
         """Start the server."""
@@ -89,10 +49,10 @@ class ServerControlPage:
         if success:
             self._is_running = True
             self._update_ui_state()
-            self._add_log("Server started successfully")
+            self._add_log("✅ Server started successfully")
         else:
             self._update_status("Failed to start server")
-            self._add_log("ERROR: Server failed to start")
+            self._add_log("❌ ERROR: Server failed to start")
 
     def _on_stop(self) -> None:
         """Stop the server."""
@@ -103,163 +63,286 @@ class ServerControlPage:
         self.on_stop_server()
         self._is_running = False
         self._update_ui_state()
-        self._add_log("Server stopped")
+        self._add_log("⏹️ Server stopped")
 
     def _on_open(self) -> None:
         """Open in browser."""
         if not self._is_running:
-            tk.messagebox.showwarning("Server Not Running", "Server is not running")
+            ctk.CTkLabel(
+                self.status_frame,
+                text="Server is not running!",
+                text_color="#f44336",
+            ).pack_forget()
             return
         self.on_open_browser()
 
     def _update_status(self, message: str) -> None:
         """Update status text."""
         if hasattr(self, "_status_label"):
-            self._status_label.config(text=message)
+            self._status_label.configure(text=message)
 
     def _update_ui_state(self) -> None:
         """Update button states based on server status."""
         if self._start_btn and self._stop_btn:
-            self._start_btn.config(state="disabled" if self._is_running else "normal")
-            self._stop_btn.config(state="normal" if self._is_running else "disabled")
+            if self._is_running:
+                self._start_btn.configure(
+                    state="disabled",
+                    fg_color="#45a049",
+                )
+                self._stop_btn.configure(
+                    state="normal",
+                    fg_color="#f44336",
+                )
+            else:
+                self._start_btn.configure(
+                    state="normal",
+                    fg_color="#4caf50",
+                )
+                self._stop_btn.configure(
+                    state="disabled",
+                    fg_color="#666666",
+                )
 
     def _add_log(self, message: str) -> None:
         """Add entry to log display."""
-        self._log_entries.append(message)
+        import datetime
+
+        timestamp = datetime.datetime.now().strftime("%H:%M:%S")
+        self._log_entries.append(f"[{timestamp}] {message}")
         if len(self._log_entries) > 100:
             self._log_entries = self._log_entries[-100:]
 
         if hasattr(self, "_log_text"):
-            self._log_text.config(state="normal")
-            self._log_text.delete(1.0, tk.END)
+            self._log_text.configure(state="normal")
+            self._log_text.delete(1.0, "end")
             for line in self._log_entries:
-                self._log_text.insert(tk.END, line + "\n")
-            self._log_text.config(state="disabled")
-            self._log_text.see(tk.END)
+                self._log_text.insert("end", line + "\n")
+            self._log_text.configure(state="disabled")
+            self._log_text.see("end")
 
     def _build(self) -> None:
         """Build the page content."""
-        # Title
-        ttk.Label(self.frame, text="Server Control", font=("Arial", 16, "bold")).pack(
-            anchor=tk.W, pady=(0, 10)
+        # Header
+        header = ctk.CTkFrame(self.frame, fg_color="transparent")
+        header.grid(row=0, column=0, sticky="ew", pady=(0, 10), padx=10)
+        header.grid_columnconfigure(0, weight=1)
+
+        ctk.CTkLabel(
+            header,
+            text="Server Control",
+            font=("Inter", 24, "bold"),
+        ).grid(row=0, column=0, sticky="w")
+
+        ctk.CTkLabel(
+            header,
+            text="Start/stop the proxy server and monitor activity",
+            font=("Inter", 12),
+            text_color="gray",
+        ).grid(row=1, column=0, sticky="w", pady=(5, 0))
+
+        # Scrollable content
+        scroll_frame = ctk.CTkScrollableFrame(
+            self.frame, fg_color="transparent", corner_radius=0
         )
+        scroll_frame.grid(row=1, column=0, sticky="nsew", pady=10)
+        scroll_frame.grid_columnconfigure(0, weight=1)
 
-        ttk.Separator(self.frame, orient=tk.HORIZONTAL).pack(fill=tk.X, pady=5)
+        # Server Settings Card
+        settings_card = ctk.CTkFrame(
+            scroll_frame,
+            corner_radius=12,
+            border_width=1,
+            border_color=["gray80", "gray40"],
+        )
+        settings_card.pack(fill="x", pady=10, padx=5)
+        settings_card.grid_columnconfigure((0, 1), weight=1)
 
-        # Server settings
-        settings_frame = ttk.LabelFrame(self.frame, text="Server Settings", padding=10)
-        settings_frame.pack(fill=tk.X, pady=10)
+        ctk.CTkLabel(
+            settings_card,
+            text="⚙️ Server Settings",
+            font=("Inter", 16, "bold"),
+        ).pack(anchor="w", pady=(15, 10), padx=15)
 
-        settings_row = ttk.Frame(settings_frame)
-        settings_row.pack(fill=tk.X, pady=5)
+        settings_row = ctk.CTkFrame(settings_card, fg_color="transparent")
+        settings_row.pack(fill="x", padx=15, pady=(0, 15))
+        settings_row.grid_columnconfigure((0, 1), weight=1)
 
         # Port
-        port_frame = ttk.Frame(settings_row)
-        port_frame.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
-        ttk.Label(port_frame, text="Port").pack(anchor=tk.W)
-        self._port_var = tk.StringVar(value=self.config.get("PORT", "8082"))
-        port_entry = ttk.Entry(port_frame, textvariable=self._port_var, width=15)
-        port_entry.pack(fill=tk.X)
+        port_frame = ctk.CTkFrame(settings_row, fg_color="transparent")
+        port_frame.grid(row=0, column=0, sticky="ew", padx=(0, 10))
 
-        def on_port_change(*args):
+        ctk.CTkLabel(port_frame, text="Port", font=("Inter", 12, "bold")).pack(
+            anchor="w", pady=(0, 5)
+        )
+
+        self._port_var = ctk.StringVar(value=self.config.get("PORT", "8082"))
+        port_entry = ctk.CTkEntry(
+            port_frame,
+            font=("Inter", 12),
+            height=35,
+            corner_radius=8,
+        )
+        port_entry.insert(0, self.config.get("PORT", "8082"))
+        port_entry.pack(fill="x")
+
+        def on_port_change(event=None):
             if self.on_config_change:
-                self.on_config_change("PORT", self._port_var.get())
+                self.on_config_change("PORT", port_entry.get())
 
-        self._port_var.trace_add("write", on_port_change)
+        port_entry.bind("<FocusOut>", on_port_change)
+        port_entry.bind("<Return>", on_port_change)
+
+        self._port_var.trace_add("write", lambda *args: self._update_connection_info())
+        self._port_entry = port_entry
 
         # Host
-        host_frame = ttk.Frame(settings_row)
-        host_frame.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
-        ttk.Label(host_frame, text="Host").pack(anchor=tk.W)
-        self._host_var = tk.StringVar(value=self.config.get("host", "0.0.0.0"))
-        host_entry = ttk.Entry(host_frame, textvariable=self._host_var, width=20)
-        host_entry.pack(fill=tk.X)
+        host_frame = ctk.CTkFrame(settings_row, fg_color="transparent")
+        host_frame.grid(row=0, column=1, sticky="ew", padx=(10, 0))
 
-        def on_host_change(*args):
+        ctk.CTkLabel(host_frame, text="Host", font=("Inter", 12, "bold")).pack(
+            anchor="w", pady=(0, 5)
+        )
+
+        self._host_var = ctk.StringVar(value=self.config.get("host", "0.0.0.0"))
+        host_entry = ctk.CTkEntry(
+            host_frame,
+            font=("Inter", 12),
+            height=35,
+            corner_radius=8,
+        )
+        host_entry.insert(0, self.config.get("host", "0.0.0.0"))
+        host_entry.pack(fill="x")
+
+        def on_host_change(event=None):
             if self.on_config_change:
-                self.on_config_change("host", self._host_var.get())
+                self.on_config_change("host", host_entry.get())
 
-        self._host_var.trace_add("write", on_host_change)
+        host_entry.bind("<FocusOut>", on_host_change)
+        host_entry.bind("<Return>", on_host_change)
 
-        # Control buttons
-        control_frame = ttk.LabelFrame(self.frame, text="Server Control", padding=15)
-        control_frame.pack(fill=tk.X, pady=10)
-
-        self._status_label = ttk.Label(
-            control_frame, text="Server is stopped", font=("Arial", 11)
+        # Control Card
+        control_card = ctk.CTkFrame(
+            scroll_frame,
+            corner_radius=12,
+            border_width=1,
+            border_color=["gray80", "gray40"],
         )
-        self._status_label.pack(pady=(0, 15))
+        control_card.pack(fill="x", pady=10, padx=5)
 
-        btn_frame = ttk.Frame(control_frame)
-        btn_frame.pack()
+        self.status_frame = ctk.CTkFrame(control_card, fg_color="transparent")
+        self.status_frame.pack(fill="x", padx=15, pady=(15, 10))
 
-        self._start_btn = ttk.Button(
+        self._status_label = ctk.CTkLabel(
+            self.status_frame,
+            text="⏹️ Server is stopped",
+            font=("Inter", 16, "bold"),
+            text_color="#f44336",
+        )
+        self._status_label.pack(side="left")
+
+        btn_frame = ctk.CTkFrame(control_card, fg_color="transparent")
+        btn_frame.pack(fill="x", padx=15, pady=(0, 15))
+
+        self._start_btn = ctk.CTkButton(
             btn_frame,
-            text="Start Server",
+            text="▶️  Start Server",
+            font=("Inter", 14, "bold"),
+            height=45,
+            corner_radius=10,
+            fg_color="#4caf50",
+            hover_color="#45a049",
             command=self._on_start,
-            width=15,
         )
-        self._start_btn.pack(side=tk.LEFT, padx=5)
+        self._start_btn.pack(side="left", padx=(0, 10))
 
-        self._stop_btn = ttk.Button(
+        self._stop_btn = ctk.CTkButton(
             btn_frame,
-            text="Stop Server",
+            text="⏹️  Stop Server",
+            font=("Inter", 14, "bold"),
+            height=45,
+            corner_radius=10,
+            fg_color="#666666",
+            state="disabled",
             command=self._on_stop,
-            width=15,
-            state="disabled",
         )
-        self._stop_btn.pack(side=tk.LEFT, padx=5)
+        self._stop_btn.pack(side="left", padx=5)
 
-        ttk.Button(
+        ctk.CTkButton(
             btn_frame,
-            text="Open in Browser",
+            text="🌐 Open Browser",
+            font=("Inter", 14, "bold"),
+            height=45,
+            corner_radius=10,
             command=self._on_open,
-            width=15,
-        ).pack(side=tk.LEFT, padx=5)
+        ).pack(side="left", padx=5)
 
-        # Connection info
-        info_frame = ttk.LabelFrame(self.frame, text="Connection Info", padding=10)
-        info_frame.pack(fill=tk.X, pady=10)
-
-        port_val = self.config.get("PORT", "8082")
-        info_text = f"""Server will run at: http://0.0.0.0:{port_val}
-
-Claude Code environment variables:
-ANTHROPIC_BASE_URL=http://localhost:{port_val}
-ANTHROPIC_AUTH_TOKEN=freecc
-
-Run 'claude' in your terminal after starting the server."""
-
-        ttk.Label(info_frame, text=info_text, justify=tk.LEFT).pack(anchor=tk.W, pady=5)
-
-        # Logs
-        ttk.Label(self.frame, text="Server Logs", font=("Arial", 12, "bold")).pack(
-            anchor=tk.W, pady=(20, 5)
+        # Connection Info Card
+        self.info_card = ctk.CTkFrame(
+            scroll_frame,
+            corner_radius=12,
+            border_width=1,
+            border_color=["gray80", "gray40"],
         )
+        self.info_card.pack(fill="x", pady=10, padx=5)
 
-        log_frame = ttk.Frame(self.frame)
-        log_frame.pack(fill=tk.BOTH, expand=True)
+        ctk.CTkLabel(
+            self.info_card,
+            text="ℹ️ Connection Info",
+            font=("Inter", 16, "bold"),
+        ).pack(anchor="w", pady=(15, 10), padx=15)
 
-        scrollbar = ttk.Scrollbar(log_frame)
-        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        self._info_text_label = ctk.CTkLabel(
+            self.info_card,
+            text="",
+            font=("Consolas", 12),
+            justify="left",
+        )
+        self._info_text_label.pack(anchor="w", padx=15, pady=(0, 15))
 
-        self._log_text = tk.Text(
-            log_frame,
-            height=10,
+        self._update_connection_info()
+
+        # Logs Card
+        log_card = ctk.CTkFrame(
+            scroll_frame,
+            corner_radius=12,
+            border_width=1,
+            border_color=["gray80", "gray40"],
+        )
+        log_card.pack(fill="both", expand=True, pady=10, padx=5)
+
+        ctk.CTkLabel(
+            log_card,
+            text="📋 Server Logs",
+            font=("Inter", 16, "bold"),
+        ).pack(anchor="w", pady=(15, 10), padx=15)
+
+        self._log_text = ctk.CTkTextbox(
+            log_card,
+            font=("Consolas", 11),
+            corner_radius=8,
+            fg_color=["gray85", "gray20"],
+            text_color=["gray20", "gray90"],
             state="disabled",
-            bg="#2d2d2d",
-            fg="#ffffff",
-            font=("Consolas", 10),
-            yscrollcommand=scrollbar.set,
         )
-        self._log_text.pack(fill=tk.BOTH, expand=True)
-        scrollbar.config(command=self._log_text.yview)
+        self._log_text.pack(fill="both", expand=True, padx=15, pady=(0, 15))
+
+    def _update_connection_info(self) -> None:
+        """Update connection info text."""
+        port = self.config.get("PORT", "8082")
+        info_text = f"""Will run at: http://0.0.0.0:{port}
+
+Environment variables:
+  ANTHROPIC_BASE_URL=http://localhost:{port}
+  ANTHROPIC_AUTH_TOKEN=freecc"""
+        self._info_text_label.configure(text=info_text)
 
     def set_running(self, running: bool) -> None:
         """Update running state from external source."""
         self._is_running = running
         self._update_ui_state()
         if running:
-            self._update_status("Server is running")
+            self._update_status("🟢 Server is running")
+            self._status_label.configure(text_color="#4caf50")
         else:
-            self._update_status("Server is stopped")
+            self._update_status("⏹️ Server is stopped")
+            self._status_label.configure(text_color="#f44336")

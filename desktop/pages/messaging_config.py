@@ -2,8 +2,7 @@
 
 from __future__ import annotations
 
-import tkinter as tk
-from tkinter import ttk
+import customtkinter as ctk
 from typing import TYPE_CHECKING, Callable
 
 if TYPE_CHECKING:
@@ -15,133 +14,167 @@ class MessagingConfigPage:
 
     def __init__(
         self,
-        parent: ttk.Frame,
+        parent: ctk.CTkFrame,
         config: dict[str, str],
         on_config_change: Callable[[str, str], None],
     ) -> None:
         self.parent = parent
         self.config = config
         self.on_config_change = on_config_change
-        self._controls: dict[str, tk.Widget] = {}
+        self._controls: dict[str, ctk.CTkBaseClass] = {}
 
-        self.frame = ttk.Frame(parent)
+        # Create main frame
+        self.frame = ctk.CTkFrame(parent, fg_color="transparent")
+        self.frame.grid(row=0, column=0, sticky="nsew")
+        self.frame.grid_columnconfigure(0, weight=1)
+        self.frame.grid_rowconfigure(1, weight=1)
+
+        # Header
+        header = ctk.CTkFrame(self.frame, fg_color="transparent")
+        header.grid(row=0, column=0, sticky="ew", pady=(0, 10), padx=10)
+        header.grid_columnconfigure(0, weight=1)
+
+        ctk.CTkLabel(
+            header,
+            text="Messaging Platform",
+            font=("Inter", 24, "bold"),
+        ).grid(row=0, column=0, sticky="w")
+
+        ctk.CTkLabel(
+            header,
+            text="Configure Discord or Telegram bot for remote Claude Code control",
+            font=("Inter", 12),
+            text_color="gray",
+        ).grid(row=1, column=0, sticky="w", pady=(5, 0))
+
+        # Scrollable content
+        self.scroll_frame = ctk.CTkScrollableFrame(
+            self.frame, fg_color="transparent", corner_radius=0
+        )
+        self.scroll_frame.grid(row=1, column=0, sticky="nsew", pady=10)
+        self.scroll_frame.grid_columnconfigure(0, weight=1)
+
         self._build()
 
     def _create_input(
         self,
-        parent: ttk.Frame,
+        parent: ctk.CTkFrame,
         label: str,
         key: str,
         hint: str | None = None,
         password: bool = False,
-    ) -> ttk.Entry:
+    ) -> ctk.CTkEntry:
         """Create a text input field."""
         value = self.config.get(key, "")
 
-        frame = ttk.Frame(parent)
-        frame.pack(fill=tk.X, pady=5)
+        frame = ctk.CTkFrame(parent, fg_color="transparent")
+        frame.pack(fill="x", pady=8)
 
-        ttk.Label(frame, text=label, font=("Arial", 10, "bold")).pack(
-            anchor=tk.W, pady=(0, 2)
+        ctk.CTkLabel(frame, text=label, font=("Inter", 13, "bold")).pack(
+            anchor="w", pady=(0, 5)
         )
 
-        var = tk.StringVar(value=value)
-        entry = ttk.Entry(frame, textvariable=var, show="*" if password else "")
-        entry.pack(fill=tk.X)
+        entry = ctk.CTkEntry(
+            frame,
+            show="●" if password else "",
+            font=("Inter", 12),
+            height=35,
+            corner_radius=8,
+        )
+        entry.insert(0, value)
+        entry.pack(fill="x")
 
         if hint:
-            ttk.Label(frame, text=hint, foreground="gray", font=("Arial", 8)).pack(
-                anchor=tk.W, pady=(2, 0)
+            ctk.CTkLabel(frame, text=hint, font=("Inter", 10), text_color="gray").pack(
+                anchor="w", pady=(3, 0)
             )
 
-        def on_change(*args):
-            self.on_config_change(key, var.get())
+        def on_change(event=None):
+            self.on_config_change(key, entry.get())
 
-        var.trace_add("write", on_change)
+        entry.bind("<FocusOut>", on_change)
+        entry.bind("<Return>", on_change)
+
         self._controls[key] = entry
-
         return entry
 
     def _create_dropdown(
         self,
-        parent: ttk.Frame,
+        parent: ctk.CTkFrame,
         label: str,
         key: str,
         options: list[str],
-    ) -> ttk.Combobox:
+    ) -> ctk.CTkOptionMenu:
         """Create a dropdown field."""
         value = self.config.get(key, options[0] if options else "")
 
-        frame = ttk.Frame(parent)
-        frame.pack(fill=tk.X, pady=5)
+        frame = ctk.CTkFrame(parent, fg_color="transparent")
+        frame.pack(fill="x", pady=8)
 
-        ttk.Label(frame, text=label, font=("Arial", 10, "bold")).pack(
-            anchor=tk.W, pady=(0, 2)
+        ctk.CTkLabel(frame, text=label, font=("Inter", 13, "bold")).pack(
+            anchor="w", pady=(0, 5)
         )
 
-        var = tk.StringVar(value=value)
-        combo = ttk.Combobox(frame, textvariable=var, values=options, state="readonly")
-        combo.pack(fill=tk.X)
+        dropdown = ctk.CTkOptionMenu(
+            frame,
+            values=options,
+            font=("Inter", 12),
+            height=35,
+            corner_radius=8,
+            command=lambda choice: self.on_config_change(key, choice),
+        )
+        dropdown.set(value)
+        dropdown.pack(fill="x")
 
-        def on_change(*args):
-            self.on_config_change(key, var.get())
+        self._controls[key] = dropdown
+        return dropdown
 
-        var.trace_add("write", on_change)
-        self._controls[key] = combo
+    def _create_card(self, title: str) -> ctk.CTkFrame:
+        """Create a card-style container."""
+        card = ctk.CTkFrame(
+            self.scroll_frame,
+            corner_radius=12,
+            border_width=1,
+            border_color=["gray80", "gray40"],
+        )
+        card.pack(fill="x", pady=10, padx=5)
 
-        return combo
+        ctk.CTkLabel(card, text=title, font=("Inter", 16, "bold")).pack(
+            anchor="w", pady=(15, 10), padx=15
+        )
+
+        return card
 
     def _build(self) -> None:
         """Build the page content."""
-        # Title
-        ttk.Label(
-            self.frame, text="Messaging Platform", font=("Arial", 16, "bold")
-        ).pack(anchor=tk.W, pady=(0, 10))
+        # Platform Selection Card
+        platform_card = self._create_card("Platform Selection")
 
-        ttk.Separator(self.frame, orient=tk.HORIZONTAL).pack(fill=tk.X, pady=5)
+        content = ctk.CTkFrame(platform_card, fg_color="transparent")
+        content.pack(fill="x", padx=15, pady=(0, 15))
 
-        ttk.Label(
-            self.frame,
-            text="Configure Discord or Telegram bot for remote Claude Code control.",
-            foreground="gray",
-        ).pack(anchor=tk.W, pady=(0, 15))
-
-        # Scrollable frame
-        canvas = tk.Canvas(self.frame, bg="#1e1e1e", highlightthickness=0)
-        scrollbar = ttk.Scrollbar(self.frame, orient=tk.VERTICAL, command=canvas.yview)
-        scroll_frame = ttk.Frame(canvas)
-
-        scroll_frame.bind(
-            "<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
-        )
-
-        canvas.create_window((0, 0), window=scroll_frame, anchor=tk.NW, width=700)
-        canvas.configure(yscrollcommand=scrollbar.set)
-
-        canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
-
-        # Platform selection
-        platform_frame = ttk.LabelFrame(
-            scroll_frame, text="Platform Selection", padding=10
-        )
-        platform_frame.pack(fill=tk.X, pady=10, padx=5)
+        ctk.CTkLabel(
+            content,
+            text="Choose your messaging platform",
+            font=("Inter", 11),
+            text_color="gray",
+        ).pack(anchor="w", pady=(0, 10))
 
         self._create_dropdown(
-            platform_frame,
+            content,
             "Messaging Platform",
             "MESSAGING_PLATFORM",
             ["discord", "telegram"],
         )
 
-        # Discord Section
-        discord_frame = ttk.LabelFrame(
-            scroll_frame, text="Discord Configuration", padding=10
-        )
-        discord_frame.pack(fill=tk.X, pady=10, padx=5)
+        # Discord Card
+        discord_card = self._create_card("💬 Discord Configuration")
+
+        discord_content = ctk.CTkFrame(discord_card, fg_color="transparent")
+        discord_content.pack(fill="x", padx=15, pady=(0, 15))
 
         self._create_input(
-            discord_frame,
+            discord_content,
             "Discord Bot Token",
             "DISCORD_BOT_TOKEN",
             "Get from Discord Developer Portal",
@@ -149,20 +182,20 @@ class MessagingConfigPage:
         )
 
         self._create_input(
-            discord_frame,
+            discord_content,
             "Allowed Discord Channels",
             "ALLOWED_DISCORD_CHANNELS",
             "Comma-separated channel IDs (e.g., 123456789,987654321)",
         )
 
-        # Telegram Section
-        telegram_frame = ttk.LabelFrame(
-            scroll_frame, text="Telegram Configuration", padding=10
-        )
-        telegram_frame.pack(fill=tk.X, pady=10, padx=5)
+        # Telegram Card
+        telegram_card = self._create_card("✈️ Telegram Configuration")
+
+        telegram_content = ctk.CTkFrame(telegram_card, fg_color="transparent")
+        telegram_content.pack(fill="x", padx=15, pady=(0, 15))
 
         self._create_input(
-            telegram_frame,
+            telegram_content,
             "Telegram Bot Token",
             "TELEGRAM_BOT_TOKEN",
             "Get from @BotFather",
@@ -170,35 +203,45 @@ class MessagingConfigPage:
         )
 
         self._create_input(
-            telegram_frame,
+            telegram_content,
             "Allowed Telegram User ID",
             "ALLOWED_TELEGRAM_USER_ID",
             "Your Telegram user ID (from @userinfobot)",
         )
 
-        # Agent Workspace
-        workspace_frame = ttk.LabelFrame(
-            scroll_frame, text="Agent Settings", padding=10
-        )
-        workspace_frame.pack(fill=tk.X, pady=10, padx=5)
+        # Agent Settings Card
+        agent_card = self._create_card("🤖 Agent Settings")
+
+        agent_content = ctk.CTkFrame(agent_card, fg_color="transparent")
+        agent_content.pack(fill="x", padx=15, pady=(0, 15))
 
         self._create_input(
-            workspace_frame,
+            agent_content,
             "Claude Workspace",
             "CLAUDE_WORKSPACE",
             "Directory where the agent operates (e.g., ./agent_workspace)",
         )
 
         self._create_input(
-            workspace_frame,
+            agent_content,
             "Allowed Directory",
             "ALLOWED_DIR",
             "Restrict CLI file access to this directory (optional)",
         )
 
-        # Help text
-        help_frame = ttk.LabelFrame(scroll_frame, text="Setup Instructions", padding=10)
-        help_frame.pack(fill=tk.X, pady=20, padx=5)
+        # Help Card
+        help_card = ctk.CTkFrame(
+            self.scroll_frame,
+            corner_radius=12,
+            fg_color=["gray90", "gray20"],
+        )
+        help_card.pack(fill="x", pady=15, padx=5)
+
+        ctk.CTkLabel(
+            help_card,
+            text="📖 Setup Instructions",
+            font=("Inter", 16, "bold"),
+        ).pack(anchor="w", pady=(15, 10), padx=15)
 
         help_text = """Discord:
 1. Go to Discord Developer Portal (discord.com/developers/applications)
@@ -213,13 +256,18 @@ Telegram:
 3. Copy the token provided and paste it above
 4. Message @userinfobot to get your User ID"""
 
-        ttk.Label(help_frame, text=help_text, justify=tk.LEFT).pack(anchor=tk.W)
+        ctk.CTkLabel(
+            help_card,
+            text=help_text,
+            font=("Inter", 11),
+            justify="left",
+        ).pack(anchor="w", pady=(0, 15), padx=15)
 
     def refresh(self) -> None:
         """Refresh controls with current config values."""
         for key, control in self._controls.items():
-            if isinstance(control, ttk.Entry):
-                control.delete(0, tk.END)
+            if isinstance(control, ctk.CTkEntry):
+                control.delete(0, "end")
                 control.insert(0, self.config.get(key, ""))
-            elif isinstance(control, ttk.Combobox):
+            elif isinstance(control, ctk.CTkOptionMenu):
                 control.set(self.config.get(key, ""))

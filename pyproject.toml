@@ -26,6 +26,7 @@ dependencies = [
 [project.scripts]
 free-claude-code = "cli.entrypoints:serve"
 fcc-init = "cli.entrypoints:init"
+fcc-gui = "desktop.app:run_desktop"
 
 [project.optional-dependencies]
 voice = [
@@ -39,9 +40,13 @@ voice_local = [
     "accelerate>=0.30.0",
     "librosa>=0.10.0",
 ]
+desktop = [
+    "customtkinter>=5.2.2",
+    "pyinstaller>=6.0",
+]
 
 [tool.hatch.build.targets.wheel]
-packages = ["api", "cli", "config", "messaging", "providers"]
+packages = ["api", "cli", "config", "desktop", "messaging", "providers"]
 
 [tool.uv.sources]
 torch = { index = "pytorch-cu130" }
@@ -101,4 +106,4 @@ python-version = "3.14"
 [tool.ty.analysis]
 # Optional voice_local extra: torch, transformers, librosa for local whisper transcription
 # Optional voice extra: nvidia-riva-client for nvidia_nim transcription provider
-allowed-unresolved-imports = ["torch", "transformers", "librosa", "riva.client"]
+allowed-unresolved-imports = ["torch", "transformers", "librosa", "riva.client", "customtkinter"]
