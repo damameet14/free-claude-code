@@ -21,6 +21,7 @@ dependencies = [
     "pydantic-settings>=2.12.0",
     "openai>=2.16.0",
     "loguru>=0.7.0",
+    "pillow>=12.1.1",
 ]
 
 [project.scripts]
@@ -106,4 +107,4 @@ python-version = "3.14"
 [tool.ty.analysis]
 # Optional voice_local extra: torch, transformers, librosa for local whisper transcription
 # Optional voice extra: nvidia-riva-client for nvidia_nim transcription provider
-allowed-unresolved-imports = ["torch", "transformers", "librosa", "riva.client", "customtkinter"]
+allowed-unresolved-imports = ["torch", "transformers", "librosa", "riva.client", "customtkinter", "PIL"]

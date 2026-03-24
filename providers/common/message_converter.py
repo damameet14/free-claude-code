@@ -3,6 +3,8 @@
 import json
 from typing import Any
 
+from loguru import logger
+
 
 def get_block_attr(block: Any, attr: str, default: Any = None) -> Any:
     """Get attribute from object or dict."""
@@ -114,20 +116,47 @@ class AnthropicToOpenAIConverter:
 
     @staticmethod
     def _convert_user_message(content: list[Any]) -> list[dict[str, Any]]:
-        """Convert user message blocks (including tool results), preserving order."""
-        result: list[dict[str, Any]] = []
+        """Convert user message blocks (including tool results and images), preserving order.
+
+        Returns a single user message with multimodal content array when images are present.
+        """
+        content_parts: list[dict[str, Any]] = []
         text_parts: list[str] = []
+        tool_results: list[dict[str, Any]] = []
 
         def flush_text() -> None:
             if text_parts:
-                result.append({"role": "user", "content": "\n".join(text_parts)})
+                text = "\n".join(text_parts)
+                content_parts.append({"type": "text", "text": text})
                 text_parts.clear()
 
+        image_count = 0
         for block in content:
             block_type = get_block_type(block)
 
             if block_type == "text":
                 text_parts.append(get_block_attr(block, "text", ""))
+            elif block_type == "image":
+                image_count += 1
+                flush_text()
+                source = get_block_attr(block, "source", {})
+                if isinstance(source, dict):
+                    media_type = source.get("media_type", "image/png")
+                    # Handle both 'data' and 'base64' keys for flexibility
+                    image_data = source.get("data") or source.get("base64", "")
+                    if image_data:
+                        # Ensure proper base64 data URL format
+                        if not image_data.startswith("data:"):
+                            image_data = f"data:{media_type};base64,{image_data}"
+                        content_parts.append(
+                            {
+                                "type": "image_url",
+                                "image_url": {"url": image_data},
+                            }
+                        )
+                        continue
+                # Fallback: append placeholder text if image data is invalid
+                text_parts.append("[image]")
             elif block_type == "tool_result":
                 flush_text()
                 tool_content = get_block_attr(block, "content", "")
@@ -138,7 +167,7 @@ class AnthropicToOpenAIConverter:
                         else str(item)
                         for item in tool_content
                     )
-                result.append(
+                tool_results.append(
                     {
                         "role": "tool",
                         "tool_call_id": get_block_attr(block, "tool_use_id"),
@@ -147,6 +176,36 @@ class AnthropicToOpenAIConverter:
                 )
 
         flush_text()
+
+        # Log image processing for observability
+        if image_count > 0:
+            logger.debug(
+                "IMAGE_CONVERSION: {} image block(s) converted to OpenAI format",
+                image_count,
+            )
+
+        # Build result message(s)
+        result: list[dict[str, Any]] = []
+
+        # If we have multimodal content (text + images), return single message with content array
+        if content_parts:
+            # Check if we have non-text parts (images)
+            has_multimodal = any(p.get("type") != "text" for p in content_parts)
+            if has_multimodal:
+                result.append({"role": "user", "content": content_parts})
+            else:
+                # Only text parts - collapse to simple string format
+                text_only = "\n".join(p.get("text", "") for p in content_parts)
+                if text_only.strip():
+                    result.append({"role": "user", "content": text_only})
+
+        # Add tool results as separate messages
+        result.extend(tool_results)
+
+        # If nothing was produced, return empty content placeholder
+        if not result:
+            result.append({"role": "user", "content": ""})
+
         return result
 
     @staticmethod

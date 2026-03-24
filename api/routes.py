@@ -2,6 +2,7 @@
 
 import traceback
 import uuid
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
@@ -47,11 +48,28 @@ async def create_message(
         provider = get_provider_for_type(provider_type)
 
         request_id = f"req_{uuid.uuid4().hex[:12]}"
+
+        # Count images in request for logging
+        def is_image_block(block: Any) -> bool:
+            if isinstance(block, dict):
+                return block.get("type") == "image"
+            return getattr(block, "type", None) == "image"
+
+        image_count = sum(
+            1
+            for msg in request_data.messages
+            if isinstance(msg.content, list)
+            for block in msg.content
+            if is_image_block(block)
+        )
+        image_info = f" images={image_count}" if image_count > 0 else ""
+
         logger.info(
-            "API_REQUEST: request_id={} model={} messages={}",
+            "API_REQUEST: request_id={} model={} messages={}{}",
             request_id,
             request_data.model,
             len(request_data.messages),
+            image_info,
         )
         logger.debug("FULL_PAYLOAD [{}]: {}", request_id, request_data.model_dump())
 

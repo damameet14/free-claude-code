@@ -13,12 +13,32 @@ from loguru import logger
 if TYPE_CHECKING:
     pass
 
+# Try to import PIL for image support
+from typing import Any
+
 from config.settings import get_settings
 from desktop.pages.messaging_config import MessagingConfigPage
 from desktop.pages.model_mapping import ModelMappingPage
 from desktop.pages.provider_config import ProviderConfigPage
 from desktop.pages.server_control import ServerControlPage
 from desktop.utils import load_config, save_config, validate_config
+
+PILImage: Any = None
+_HAS_PIL = False
+try:
+    from PIL import Image
+
+    PILImage = Image
+    _HAS_PIL = True
+except ImportError:
+    pass
+
+# Brand colors from logo (orange/burnt sienna theme)
+BRAND_PRIMARY = "#C76A4F"  # Burnt sienna/orange
+BRAND_SECONDARY = "#B55A3F"  # Darker burnt orange
+BRAND_ACCENT = "#D48A70"  # Light orange
+BRAND_DARK = "#8B4A35"  # Dark brown-orange
+BRAND_LIGHT = "#E8B8A0"  # Cream/peach
 
 # Server thread globals
 _server_thread: threading.Thread | None = None
@@ -118,9 +138,39 @@ class ConfigApp:
         self.root.geometry("1000x750")
         self.root.minsize(800, 600)
 
-        # Set theme
+        # Set window icon (taskbar and window title)
+        # On Windows, .ico format works best for taskbar icons
+        logo_dir = Path(__file__).parent / "logo"
+        ico_path = logo_dir / "app_icon.ico"
+        png_path = logo_dir / "app_icon.png"
+
+        if ico_path.exists():
+            # Windows: .ico format works best for taskbar
+            try:
+                self.root.iconbitmap(str(ico_path))
+            except Exception:
+                pass
+        elif _HAS_PIL and png_path.exists() and PILImage is not None:
+            # Fallback: use PNG via wm_iconphoto (macOS/Linux)
+            try:
+                from PIL.ImageTk import PhotoImage
+
+                icon_img = PILImage.open(png_path)
+                photo = PhotoImage(icon_img)
+                self.root.wm_iconphoto(True, photo)
+                # Keep reference to prevent garbage collection
+                self._icon_photo = photo
+            except Exception:
+                pass
+        elif png_path.exists():
+            # Last resort
+            try:
+                self.root.iconbitmap(str(png_path))
+            except Exception:
+                pass
+
+        # Set theme with brand colors
         ctk.set_appearance_mode("dark")
-        ctk.set_default_color_theme("blue")
 
     def _create_ui(self) -> None:
         """Create the main UI components."""
@@ -128,75 +178,116 @@ class ConfigApp:
         self.root.grid_columnconfigure(1, weight=1)
         self.root.grid_rowconfigure(0, weight=1)
 
-        # Left sidebar
-        self.sidebar = ctk.CTkFrame(self.root, width=180, corner_radius=10)
+        # Left sidebar with brand color
+        self.sidebar = ctk.CTkFrame(
+            self.root, width=200, corner_radius=15, fg_color=("#1a1a2e", "#0f0f1a")
+        )
         self.sidebar.grid(row=0, column=0, sticky="nsew", padx=15, pady=15)
-        self.sidebar.grid_rowconfigure(5, weight=1)
+        self.sidebar.grid_rowconfigure(7, weight=1)
 
-        # App title
+        # Logo section with fallback to emoji
+        logo_path = Path(__file__).parent / "logo" / "logo.png"
+        if _HAS_PIL and logo_path.exists() and PILImage is not None:
+            try:
+                logo_image = ctk.CTkImage(
+                    light_image=PILImage.open(logo_path),  # type: ignore[union-attr,unused-coroutine]
+                    dark_image=PILImage.open(logo_path),  # type: ignore[union-attr,unused-coroutine]
+                    size=(60, 60),
+                )
+                logo_label = ctk.CTkLabel(self.sidebar, text="", image=logo_image)
+                logo_label.grid(row=0, column=0, pady=(15, 5), padx=15)
+            except Exception:
+                # Fallback: use emoji as logo
+                ctk.CTkLabel(
+                    self.sidebar,
+                    text="",
+                    font=("Segoe UI Emoji", 48),
+                ).grid(row=0, column=0, pady=(15, 5), padx=15)
+        else:
+            # Fallback: use emoji as logo
+            ctk.CTkLabel(
+                self.sidebar,
+                text="",
+                font=("Segoe UI Emoji", 48),
+            ).grid(row=0, column=0, pady=(15, 5), padx=15)
+
+        # App title with brand color
         ctk.CTkLabel(
             self.sidebar,
             text="Free Claude Code",
-            font=("Inter", 20, "bold"),
-        ).grid(row=0, column=0, pady=(15, 5), padx=15)
+            font=("Inter", 18, "bold"),
+            text_color=BRAND_LIGHT,
+        ).grid(row=1, column=0, pady=(0, 5), padx=15)
 
         ctk.CTkLabel(
             self.sidebar,
             text="Configuration",
-            font=("Inter", 12),
-            text_color="gray",
-        ).grid(row=1, column=0, pady=(0, 15), padx=15)
+            font=("Inter", 11),
+            text_color="#9CA3AF",
+        ).grid(row=2, column=0, pady=(0, 20), padx=15)
 
-        # Navigation buttons
+        # Navigation buttons with brand colors
         self.nav_buttons: dict[str, ctk.CTkButton] = {}
 
         self.btn_providers = ctk.CTkButton(
             self.sidebar,
-            text="🔑  Providers",
+            text="  Providers",
             font=("Inter", 13),
-            height=40,
-            corner_radius=8,
+            height=42,
+            corner_radius=10,
+            fg_color="transparent",
+            text_color=("#E5E7EB", "#D1D5DB"),
+            hover_color=(BRAND_PRIMARY, BRAND_SECONDARY),
             command=lambda: self._show_page("providers"),
         )
-        self.btn_providers.grid(row=2, column=0, pady=5, padx=15, sticky="ew")
+        self.btn_providers.grid(row=3, column=0, pady=5, padx=10, sticky="ew")
         self.nav_buttons["providers"] = self.btn_providers
 
         self.btn_models = ctk.CTkButton(
             self.sidebar,
-            text="🤖  Models",
+            text="  Models",
             font=("Inter", 13),
-            height=40,
-            corner_radius=8,
+            height=42,
+            corner_radius=10,
+            fg_color="transparent",
+            text_color=("#E5E7EB", "#D1D5DB"),
+            hover_color=(BRAND_PRIMARY, BRAND_SECONDARY),
             command=lambda: self._show_page("models"),
         )
-        self.btn_models.grid(row=3, column=0, pady=5, padx=15, sticky="ew")
+        self.btn_models.grid(row=4, column=0, pady=5, padx=10, sticky="ew")
         self.nav_buttons["models"] = self.btn_models
 
         self.btn_messaging = ctk.CTkButton(
             self.sidebar,
-            text="💬  Messaging",
+            text="  Messaging",
             font=("Inter", 13),
-            height=40,
-            corner_radius=8,
+            height=42,
+            corner_radius=10,
+            fg_color="transparent",
+            text_color=("#E5E7EB", "#D1D5DB"),
+            hover_color=(BRAND_PRIMARY, BRAND_SECONDARY),
             command=lambda: self._show_page("messaging"),
         )
-        self.btn_messaging.grid(row=4, column=0, pady=5, padx=15, sticky="ew")
+        self.btn_messaging.grid(row=5, column=0, pady=5, padx=10, sticky="ew")
         self.nav_buttons["messaging"] = self.btn_messaging
 
         self.btn_server = ctk.CTkButton(
             self.sidebar,
-            text="🖥️  Server",
+            text="  Server",
             font=("Inter", 13),
-            height=40,
-            corner_radius=8,
+            height=42,
+            corner_radius=10,
+            fg_color="transparent",
+            text_color=("#E5E7EB", "#D1D5DB"),
+            hover_color=(BRAND_PRIMARY, BRAND_SECONDARY),
             command=lambda: self._show_page("server"),
         )
-        self.btn_server.grid(row=5, column=0, pady=5, padx=15, sticky="ew")
+        self.btn_server.grid(row=6, column=0, pady=5, padx=10, sticky="ew")
         self.nav_buttons["server"] = self.btn_server
 
         # Bottom section with status and save
         bottom_frame = ctk.CTkFrame(self.sidebar, fg_color="transparent")
-        bottom_frame.grid(row=6, column=0, sticky="sew", padx=15, pady=15)
+        bottom_frame.grid(row=7, column=0, sticky="sew", padx=10, pady=15)
         bottom_frame.grid_columnconfigure(0, weight=1)
 
         # Status indicator
@@ -217,33 +308,38 @@ class ConfigApp:
         # Theme toggle
         self.theme_btn = ctk.CTkButton(
             bottom_frame,
-            text="🌙 Dark Mode",
+            text="Dark Mode",
             font=("Inter", 11),
             height=32,
+            corner_radius=8,
+            fg_color="transparent",
+            text_color=("#E5E7EB", "#D1D5DB"),
+            hover_color=(BRAND_PRIMARY, BRAND_SECONDARY),
             command=self._toggle_theme,
         )
         self.theme_btn.grid(row=1, column=0, pady=(0, 10), sticky="ew")
 
-        # Save button
+        # Save button with brand color
         ctk.CTkButton(
             bottom_frame,
-            text="💾 Save Config",
+            text="Save Config",
             font=("Inter", 13, "bold"),
             height=45,
-            fg_color="#4caf50",
-            hover_color="#45a049",
+            corner_radius=10,
+            fg_color=BRAND_PRIMARY,
+            hover_color=BRAND_SECONDARY,
             command=self._on_save,
         ).grid(row=2, column=0, sticky="ew")
 
         # Content area
-        self.content_frame = ctk.CTkFrame(self.root, corner_radius=10)
+        self.content_frame = ctk.CTkFrame(self.root, corner_radius=15)
         self.content_frame.grid(row=0, column=1, sticky="nsew", padx=(0, 15), pady=15)
         self.content_frame.grid_columnconfigure(0, weight=1)
         self.content_frame.grid_rowconfigure(0, weight=1)
 
     def _update_status_indicator(self, running: bool) -> None:
         """Update the status indicator color."""
-        color = "#4caf50" if running else "#666666"
+        color = BRAND_PRIMARY if running else "#666666"
         self.status_indicator.configure(fg_color=color)
 
     def _create_pages(self) -> None:
@@ -295,12 +391,18 @@ class ConfigApp:
         if page_name in self.pages:
             self.pages[page_name].grid(row=0, column=0, sticky="nsew", padx=20, pady=20)
 
-        # Update button states
+        # Update button states with brand color
         for name, btn in self.nav_buttons.items():
             if name == page_name:
-                btn.configure(fg_color=("gray70", "gray30"), state="disabled")
+                btn.configure(
+                    fg_color=(BRAND_PRIMARY, BRAND_SECONDARY),
+                    text_color="white",
+                )
             else:
-                btn.configure(state="normal")
+                btn.configure(
+                    fg_color="transparent",
+                    text_color=("#E5E7EB", "#D1D5DB"),
+                )
 
     def _toggle_theme(self) -> None:
         """Toggle between dark and light mode."""
@@ -308,7 +410,7 @@ class ConfigApp:
         new_mode = "light" if current_mode == "Dark" else "dark"
         ctk.set_appearance_mode(new_mode)
         self.theme_btn.configure(
-            text="☀️ Light Mode" if new_mode == "light" else "🌙 Dark Mode"
+            text="Light Mode" if new_mode == "light" else "Dark Mode"
         )
 
     def _on_config_change(self, key: str, value: str) -> None:
@@ -338,23 +440,13 @@ class ConfigApp:
 
             self._update_status("Configuration saved successfully")
 
-            # Custom success message
-            ctk.CTkLabel(
-                self.content_frame,
-                text="Configuration saved!",
-                font=("Inter", 14),
-                text_color="#4caf50",
-                fg_color="transparent",
-            ).grid(row=1, column=0, pady=10)
-            self.root.after(3000, lambda: self._show_page("providers"))
-
         except Exception as ex:
             messagebox.showerror("Save Error", str(ex))
 
     def _on_start_server(self) -> bool:
         """Start the FastAPI server."""
         host = self.config_data.get("host", "0.0.0.0")
-        port = int(self.config_data.get("port", 8082))
+        port = int(self.config_data.get("port", "8082"))
 
         self._update_status("Starting server...")
         success = start_server(host, port)
@@ -375,7 +467,7 @@ class ConfigApp:
 
     def _on_open_browser(self) -> None:
         """Open the proxy in browser."""
-        port = self.config_data.get("port", 8082)
+        port = self.config_data.get("port", "8082")
         webbrowser.open(f"http://localhost:{port}")
 
     def _update_status(self, message: str) -> None:
@@ -401,7 +493,7 @@ def main() -> None:
     logger.add(lambda msg: None, level="WARNING")
 
     root = ctk.CTk()
-    app = ConfigApp(root)
+    ConfigApp(root)
     root.mainloop()
 
 
