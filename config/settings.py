@@ -304,7 +304,10 @@ class Settings(BaseSettings):
                 ("ENABLE_NETWORK_PROBE_MOCK", self.enable_network_probe_mock),
                 ("ENABLE_TITLE_GENERATION_SKIP", self.enable_title_generation_skip),
                 ("ENABLE_SUGGESTION_MODE_SKIP", self.enable_suggestion_mode_skip),
-                ("ENABLE_FILEPATH_EXTRACTION_MOCK", self.enable_filepath_extraction_mock),
+                (
+                    "ENABLE_FILEPATH_EXTRACTION_MOCK",
+                    self.enable_filepath_extraction_mock,
+                ),
             ],
         )
 

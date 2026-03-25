@@ -34,7 +34,7 @@ server.*.log
 # App data
 agent_workspace/
 llama_cache/
-
+docs/
 # Environment
 .env
 .env.local

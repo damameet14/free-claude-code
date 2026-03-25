@@ -130,6 +130,7 @@ async def count_tokens(request_data: TokenCountRequest):
 
 
 @router.get("/")
+@router.head("/")
 async def root(settings: Settings = Depends(get_settings)):
     """Root endpoint."""
     return {
