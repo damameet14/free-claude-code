@@ -29,10 +29,7 @@ def build_request_body(request_data: Any) -> dict:
         extra_body.update(request_extra)
 
     thinking = getattr(request_data, "thinking", None)
-    thinking_enabled = (
-        thinking.enabled if thinking and hasattr(thinking, "enabled") else True
-    )
-    if thinking_enabled:
+    if thinking is not None:
         extra_body.setdefault("reasoning", {"enabled": True})
 
     if extra_body:

@@ -63,18 +63,29 @@ def build_request_body(request_data: Any, nim: NimSettings) -> dict:
     if request_extra:
         extra_body.update(request_extra)
 
-    # Handle thinking/reasoning mode
-    extra_body.setdefault("thinking", {"type": "enabled"})
-    extra_body.setdefault("reasoning_split", True)
-    extra_body.setdefault(
-        "chat_template_kwargs",
-        {
-            "thinking": True,
-            "enable_thinking": True,
-            "reasoning_split": True,
-            "clear_thinking": False,
-        },
-    )
+    thinking = getattr(request_data, "thinking", None)
+    
+    # Only NIM models explicitly supporting reasoning should receive reasoning parameters
+    # Otherwise standard models like NV-Llama-3.1 or Vision models will throw 400 Bad Request
+    model_name = str(body.get("model", "")).lower()
+    is_reasoning_model = "deepseek-r1" in model_name or "reason" in model_name
+
+    if thinking and is_reasoning_model:
+        # Handle thinking/reasoning mode
+        extra_body.setdefault("thinking", {"type": "enabled"})
+        extra_body.setdefault("reasoning_split", True)
+        extra_body.setdefault(
+            "chat_template_kwargs",
+            {
+                "thinking": True,
+                "enable_thinking": True,
+                "reasoning_split": True,
+                "clear_thinking": False,
+            },
+        )
+
+        _set_extra(extra_body, "reasoning_effort", nim.reasoning_effort)
+        _set_extra(extra_body, "include_reasoning", nim.include_reasoning, ignore_value=False)
 
     req_top_k = getattr(request_data, "top_k", None)
     top_k = req_top_k if req_top_k is not None else nim.top_k
@@ -86,11 +97,9 @@ def build_request_body(request_data: Any, nim: NimSettings) -> dict:
     _set_extra(extra_body, "min_tokens", nim.min_tokens, ignore_value=0)
     _set_extra(extra_body, "chat_template", nim.chat_template)
     _set_extra(extra_body, "request_id", nim.request_id)
-    _set_extra(extra_body, "return_tokens_as_token_ids", nim.return_tokens_as_token_ids)
-    _set_extra(extra_body, "include_stop_str_in_output", nim.include_stop_str_in_output)
-    _set_extra(extra_body, "ignore_eos", nim.ignore_eos)
-    _set_extra(extra_body, "reasoning_effort", nim.reasoning_effort)
-    _set_extra(extra_body, "include_reasoning", nim.include_reasoning)
+    _set_extra(extra_body, "return_tokens_as_token_ids", nim.return_tokens_as_token_ids, ignore_value=False)
+    _set_extra(extra_body, "include_stop_str_in_output", nim.include_stop_str_in_output, ignore_value=False)
+    _set_extra(extra_body, "ignore_eos", nim.ignore_eos, ignore_value=False)
 
     if extra_body:
         body["extra_body"] = extra_body
